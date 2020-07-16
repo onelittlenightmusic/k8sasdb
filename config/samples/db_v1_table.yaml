@@ -1,0 +1,8 @@
+apiVersion: db.k8sasdb.org/v1
+kind: Table
+metadata:
+  name: fruit
+spec:
+  columns:
+  - name: test
+    type: string

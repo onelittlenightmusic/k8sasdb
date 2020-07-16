@@ -1,0 +1,7 @@
+domain: k8sasdb.org
+repo: op
+resources:
+- group: db
+  kind: Table
+  version: v1
+version: "2"

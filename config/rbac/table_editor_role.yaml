@@ -1,0 +1,24 @@
+# permissions for end users to edit tables.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: table-editor-role
+rules:
+- apiGroups:
+  - db.k8sasdb.org
+  resources:
+  - tables
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - db.k8sasdb.org
+  resources:
+  - tables/status
+  verbs:
+  - get
