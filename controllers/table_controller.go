@@ -54,7 +54,7 @@ func (r *TableReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		name := fmt.Sprintf("%s", table.Name)
 		group := "user.k8sasdb.org"
 		pluralName := name + "s"
-		crdName := pluralName + "." + group
+		crdName := pluralName + "." + group // CRD naming rule
 
 		crd := &apix.CustomResourceDefinition{
 			ObjectMeta: metav1.ObjectMeta{
@@ -64,35 +64,54 @@ func (r *TableReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 				Namespace:   table.Namespace,
 			},
 		}
-		apix.SetDefaults_CustomResourceDefinitionSpec(&crd.Spec)
-		crd.Spec.Group = group
-		crd.Spec.Names = apix.CustomResourceDefinitionNames{
-			Plural:   pluralName,
-			Singular: name,
-			Kind:     strings.Title(name),
+		crd.Spec = apix.CustomResourceDefinitionSpec{
+			Group: group,
+			Names: apix.CustomResourceDefinitionNames{
+				Plural:   pluralName,
+				Singular: name,
+				Kind:     strings.Title(name),
+			},
+			Scope: "Namespaced",
 		}
-		crd.Spec.Scope = "Namespaced"
+		constructProps := func(columns []dbv1.ColumnSpec, props map[string]apix.JSONSchemaProps) map[string]apix.JSONSchemaProps {
+			rtn := map[string]apix.JSONSchemaProps{}
+			for _, columnSpec := range columns {
+				rtn[columnSpec.Name] = apix.JSONSchemaProps{
+					Type:       columnSpec.Type,
+					Properties: props,
+				}
+			}
+			return rtn
+		}
+		constructmSimpleProp := func(field string, _type string, props map[string]apix.JSONSchemaProps) map[string]apix.JSONSchemaProps {
+			return constructProps([]dbv1.ColumnSpec{{Name: field, Type: _type}}, props)
+		}
 		schema := apix.CustomResourceValidation{
 			OpenAPIV3Schema: &apix.JSONSchemaProps{
 				Type: "object",
-				Properties: map[string]apix.JSONSchemaProps{
-					"spec": apix.JSONSchemaProps{
-						Type: "object",
-						Properties: map[string]apix.JSONSchemaProps{
-							"test": apix.JSONSchemaProps{
-								Type: "string",
-							},
-						},
-					},
-				},
+				Properties: constructmSimpleProp("spec", "object",
+					constructProps(table.Spec.Columns, nil),
+				),
 			},
+		}
+		additionalPrinterColumns := []apix.CustomResourceColumnDefinition{}
+		constructPrinterColumn := func(columnSpec dbv1.ColumnSpec) apix.CustomResourceColumnDefinition {
+			return apix.CustomResourceColumnDefinition{
+				Name:     columnSpec.Name,
+				Type:     columnSpec.Type,
+				JSONPath: ".spec." + columnSpec.Name,
+			}
+		}
+		for _, columnSpec := range table.Spec.Columns {
+			additionalPrinterColumns = append(additionalPrinterColumns, constructPrinterColumn(columnSpec))
 		}
 		crd.Spec.Versions = append(crd.Spec.Versions,
 			apix.CustomResourceDefinitionVersion{
-				Name:    "v1",
-				Served:  true,
-				Storage: true,
-				Schema:  &schema,
+				Name:                     "v1",
+				Served:                   true,
+				Storage:                  true,
+				Schema:                   &schema,
+				AdditionalPrinterColumns: additionalPrinterColumns,
 			},
 		)
 
