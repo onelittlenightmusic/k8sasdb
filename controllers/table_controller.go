@@ -18,9 +18,9 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-logr/logr"
 	apix "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	dbv1 "op/api/v1"
@@ -49,12 +49,18 @@ func (r *TableReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
 	log := r.Log.WithValues("table", req.NamespacedName)
 
-	constructCRDForTable := func(table *dbv1.Table) (*apix.CustomResourceDefinition, error) {
-		// We want job names for a given nominal start time to have a deterministic name to avoid the same job being created twice
-		name := fmt.Sprintf("%s", table.Name)
+	getCrdNames := func(table *dbv1.Table) (string, string, string, string) {
+		name := table.Name
 		group := "user.k8sasdb.org"
 		pluralName := name + "s"
 		crdName := pluralName + "." + group // CRD naming rule
+		return name, group, pluralName, crdName
+
+	}
+
+	constructCRDForTable := func(table *dbv1.Table) (*apix.CustomResourceDefinition, error) {
+		// We want job names for a given nominal start time to have a deterministic name to avoid the same job being created twice
+		name, group, pluralName, crdName := getCrdNames(table)
 
 		crd := &apix.CustomResourceDefinition{
 			ObjectMeta: metav1.ObjectMeta{
@@ -115,13 +121,6 @@ func (r *TableReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 			},
 		)
 
-		// for k, v := range table.Spec.JobTemplate.Annotations {
-		// 		job.Annotations[k] = v
-		// }
-		// job.Annotations[scheduledTimeAnnotation] = scheduledTime.Format(time.RFC3339)
-		// for k, v := range cronJob.Spec.JobTemplate.Labels {
-		// 		job.Labels[k] = v
-		// }
 		if err := ctrl.SetControllerReference(table, crd, r.Scheme); err != nil {
 			return nil, err
 		}
@@ -135,27 +134,34 @@ func (r *TableReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		log.Error(err, "unable to fetch Table")
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	var crds apix.CustomResourceDefinitionList
-	// if err := r.List(ctx, &crds, client.InNamespace(req.Namespace), client.MatchingFields{jobOwnerKey: req.Name}); err != nil {
-	if err := r.List(ctx, &crds, client.MatchingFields{ownerKey: req.Name}); err != nil {
-		log.Error(err, "unable to list CRD")
-		return ctrl.Result{}, err
+
+	var crd apix.CustomResourceDefinition
+	_, _, _, crdName := getCrdNames(&table)
+	if err := r.Get(ctx, client.ObjectKey{Name: crdName}, &crd); err != nil {
+		if errors.IsNotFound(err) {
+			var crds apix.CustomResourceDefinitionList
+			// if err := r.List(ctx, &crds, client.InNamespace(req.Namespace), client.MatchingFields{jobOwnerKey: req.Name}); err != nil {
+			if err := r.List(ctx, &crds, client.MatchingFields{ownerKey: req.Name}); err != nil {
+				log.Error(err, "unable to list CRD")
+				return ctrl.Result{}, err
+			}
+
+			crd, err := constructCRDForTable(&table)
+			if err != nil {
+				log.Error(err, "unable to construct crd from template")
+				// don't bother requeuing until we get a change to the spec
+				return ctrl.Result{}, nil
+			}
+
+			// ...and create it on the cluster
+			if err := r.Create(ctx, crd); err != nil {
+				log.Error(err, "unable to create CRD for Table", "crd", crd)
+				return ctrl.Result{}, err
+			}
+			log.V(1).Info("created CRD for Table run", "crd", crd)
+		}
 	}
 
-	crd, err := constructCRDForTable(&table)
-	if err != nil {
-		log.Error(err, "unable to construct crd from template")
-		// don't bother requeuing until we get a change to the spec
-		return ctrl.Result{}, nil
-	}
-
-	// ...and create it on the cluster
-	if err := r.Create(ctx, crd); err != nil {
-		log.Error(err, "unable to create CRD for Table", "crd", crd)
-		return ctrl.Result{}, err
-	}
-
-	log.V(1).Info("created CRD for Table run", "crd", crd)
 	return ctrl.Result{}, nil
 }
 
