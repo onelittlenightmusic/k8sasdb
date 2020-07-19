@@ -77,18 +77,20 @@ kubectl delete fruit orange
 ## Installation
 
 ```sh
-make install
-make run
+kubectl apply -f install.yaml
 ```
 
 ## Try sample request
 
 ```sh
-kubectl apply -f config/samples/
+kubectl apply -f test/fruit.yaml
+
+kubectl apply -f test/apple.yaml
+kubectl apply -f test/banana.yaml
 ```
 
 ## Tear down 
 
 ```sh
-make uninstall
+kubectl delete -f install.yaml
 ```
