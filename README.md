@@ -37,7 +37,9 @@ kind: Fruit
 metadata:
   name: orange
 spec:
-  test: success
+  sweetness: true
+  weight: 40
+  comment: nope
 ```
 
 ```sh
@@ -65,7 +67,9 @@ metadata:
   annotations:
     ...
 spec:
-  test: success
+  sweetness: true
+  weight: 40
+  comment: nope
 ```
 
 ### 4. Delete a record
