@@ -77,7 +77,7 @@ kubectl delete fruit orange
 ## Installation
 
 ```sh
-kubectl apply -f install.yaml
+kubectl apply -f https://raw.githubusercontent.com/onelittlenightmusic/k8sasdb/master/install.yaml
 ```
 
 ## Try sample request
@@ -92,5 +92,5 @@ kubectl apply -f test/banana.yaml
 ## Tear down 
 
 ```sh
-kubectl delete -f install.yaml
+kubectl delete -f https://raw.githubusercontent.com/onelittlenightmusic/k8sasdb/master/install.yaml
 ```
