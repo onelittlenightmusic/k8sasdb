@@ -1,0 +1,51 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: fruits.user.k8sasdb.org
+  ownerReferences:
+  - apiVersion: db.k8sasdb.org/v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Table
+    name: fruit
+    uid: d518f6a4-8e4a-40d0-84fe-63b7d36aa363
+  resourceVersion: "189040"
+  selfLink: /apis/apiextensions.k8s.io/v1/customresourcedefinitions/fruits.user.k8sasdb.org
+  uid: dc221462-fcac-451f-b873-5d4a66e8db93
+spec:
+  conversion:
+    strategy: None
+  group: user.k8sasdb.org
+  names:
+    kind: Fruit
+    listKind: FruitList
+    plural: fruits
+    singular: fruit
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.sweetness
+      name: sweetness
+      type: boolean
+    - jsonPath: .spec.weight
+      name: weight
+      type: integer
+    - jsonPath: .spec.comment
+      name: comment
+      type: string
+    name: v1
+    schema:
+      openAPIV3Schema:
+        properties:
+          spec:
+            properties:
+              comment:
+                type: string
+              sweetness:
+                type: boolean
+              weight:
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
